@@ -459,6 +459,12 @@ const parser = new Parser();
 
 async function getQueryTypes(query: string): Promise<string[]> {
   try {
+    // Check for SHOW TABLES command which the parser has trouble with
+    if (query.toUpperCase().includes('SHOW TABLES LIKE')) {
+      log('error', "Special handling for SHOW TABLES LIKE query");
+      return ['show'];
+    }
+    
     log('error', "Parsing SQL query: ", query);
     // Parse into AST or array of ASTs - only specify the database type
     const astOrArray: AST | AST[] = parser.astify(query, { database: 'mysql' });
@@ -469,6 +475,12 @@ async function getQueryTypes(query: string): Promise<string[]> {
     // Map each statement to its lowercased type (e.g., 'select', 'update', 'insert', 'delete', etc.)
     return statements.map(stmt => stmt.type?.toLowerCase() ?? 'unknown');
   } catch (err: any) {
+    // Check for SHOW statements if parsing failed (parser may not support all MySQL syntax)
+    if (query.toUpperCase().startsWith('SHOW')) {
+      log('error', "Handling unparseable SHOW statement");
+      return ['show'];
+    }
+    
     log('error', "sqlParser error, query: ", query);
     log('error', 'Error parsing SQL query:', err);
     throw new Error(`Parsing failed: ${err.message}`);
